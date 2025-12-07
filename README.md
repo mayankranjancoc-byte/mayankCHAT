@@ -1,5 +1,5 @@
 
-# mayankCHAT 💬⚡
+# mayankCHAT 💬
 
 A real-time chat application built using **React, Node.js, Express, and Socket.IO**.
 
