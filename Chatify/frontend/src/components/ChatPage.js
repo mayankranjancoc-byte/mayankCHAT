@@ -1,74 +1,171 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import Header from './Header';
-import '../App.css';
-import { FaPaperPlane } from 'react-icons/fa';
-import SocketIOClient from 'socket.io-client';
+import React, { useEffect, useState, useRef } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import io from "socket.io-client";
+
+const socket = io("http://localhost:3000");
 
 const ChatPage = () => {
   const { username } = useParams();
-  const [message, setMessage] = useState('');
-  const [chats, setChats] = useState([]);
-  const [socket, setSocket] = useState(null);
-  const chatEndRef = useRef(null);
+  const navigate = useNavigate();
 
+  const [message, setMessage] = useState("");
+  const [messages, setMessages] = useState([]);
+
+  const [typingUser, setTypingUser] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const typingTimeoutRef = useRef(null);
+
+  const [onlineUsers, setOnlineUsers] = useState([]);
+
+  // 1️⃣ Send join event when user enters page
   useEffect(() => {
-    const newSocket = SocketIOClient('http://localhost:3000');
-    setSocket(newSocket);
-    newSocket.on('chat', (chatMessage) => {
-      setChats((prevChats) => [...prevChats, chatMessage]);
+    socket.emit("join", username);
+  }, [username]);
+
+  // 2️⃣ Listen for incoming messages
+  useEffect(() => {
+    socket.on("message", (data) => {
+      console.log("📥 received message:", data);
+      setMessages((prev) => [...prev, data]);
     });
 
     return () => {
-      newSocket.close();
+      socket.off("message");
     };
-  }, [setSocket]);
+  }, []);
 
+  // 3️⃣ Listen for typing and stopTyping
   useEffect(() => {
-    if (chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [chats]);
+    socket.on("typing", (name) => {
+      setTypingUser(name);
+    });
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (message.trim()) {
-      socket.emit('chat', { sender: username, message });
-      setMessage('');
+    socket.on("stopTyping", () => {
+      setTypingUser("");
+    });
+
+    return () => {
+      socket.off("typing");
+      socket.off("stopTyping");
+    };
+  }, []);
+
+  // 4️⃣ Listen for online users list
+  useEffect(() => {
+    socket.on("onlineUsers", (list) => {
+      console.log("📡 updated online users:", list);
+      setOnlineUsers(list);
+    });
+
+    return () => {
+      socket.off("onlineUsers");
+    };
+  }, []);
+
+  const handleInputChange = (e) => {
+    setMessage(e.target.value);
+
+    if (!isTyping) {
+      socket.emit("typing", username);
+      setIsTyping(true);
     }
+
+    // reset timer each time user types
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    typingTimeoutRef.current = setTimeout(() => {
+      socket.emit("stopTyping");
+      setIsTyping(false);
+      typingTimeoutRef.current = null;
+    }, 1000);
+  };
+
+  const sendMessage = (e) => {
+    e.preventDefault();
+    if (!message.trim()) return;
+
+    const msgData = {
+      username,
+      text: message,
+      time: new Date().toLocaleTimeString(),
+    };
+
+    console.log("📤 sending message:", msgData);
+    socket.emit("message", msgData);
+    setMessage("");
+
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+    socket.emit("stopTyping");
+    setIsTyping(false);
+  };
+
+  const handleLogout = () => {
+    navigate("/");
   };
 
   return (
-    <main>
-      <Header />
-      <Link to='/' className='logout-link'>LOGOUT</Link>
-      <div className='chat-container'>
-        {chats.map((chat, index) => (
-          <div key={index} className={chat.sender === username ? 'my-chat' : 'notmy-chat'}>
-            <p>
-              <span className='user'>{chat.sender === username ? `You: ${username}` : `User: ${chat.sender}`}</span>
-              <span className='msg'>{chat.message}</span>
-            </p>
-          </div>
-        ))}
-        <div ref={chatEndRef} />
+    <>
+      {/* Logout */}
+      <a className="logout-link" onClick={handleLogout}>
+        Logout
+      </a>
+
+      {/* Header */}
+      <div className="header">
+        <h2>mayankCHAT</h2>
+        <p>Chatting as {username}</p>
       </div>
-      <div className='chatbox-container'>
-        <div className='chatbox'>
-          <form onSubmit={handleSubmit}>
-            <input 
-              type='text'
-              placeholder='Enter a new message'
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-            />
-            <button type='submit'>
-              <FaPaperPlane />
-            </button>
-          </form>
+
+      {/* Online users list */}
+      <div className="online-users">
+        <h3>Online Users</h3>
+        <ul>
+          {onlineUsers.map((u, i) => (
+            <li key={i}>{u}</li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Typing indicator */}
+      {typingUser && typingUser !== username && (
+        <div className="typing-indicator">
+          {typingUser} is typing…
         </div>
+      )}
+
+      {/* Message list */}
+      <div className="chat-container">
+        {messages.map((m, i) => {
+          const mine = m.username === username;
+          return (
+            <div key={i} className={mine ? "my-chat" : "notmy-chat"}>
+              <span className="user">
+                {m.username} • {m.time}
+              </span>
+              <span className="msg">{m.text}</span>
+            </div>
+          );
+        })}
       </div>
-    </main>
+
+      {/* Input box */}
+      <div className="chatbox-container">
+        <form className="chatbox" onSubmit={sendMessage}>
+          <input
+            type="text"
+            placeholder="Type a message..."
+            value={message}
+            onChange={handleInputChange}
+          />
+          <button type="submit">Send</button>
+        </form>
+      </div>
+    </>
   );
 };
 

@@ -153,6 +153,31 @@ button:hover {
   cursor: pointer;
 }
 
+.online-users {
+  background: #1b1b1b;
+  border-radius: 10px;
+  padding: 10px;
+  margin: 0 20px 20px 20px;
+  color: #bb86fc;
+}
+
+.online-users ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.online-users li {
+  padding: 3px 0;
+}
+
+
+.typing-indicator {
+  color: #bb86fc;
+  font-style: italic;
+  margin: 5px 20px;
+}
+
 .chatbox button:hover {
   background-color: rgb(90, 19, 156);
 }

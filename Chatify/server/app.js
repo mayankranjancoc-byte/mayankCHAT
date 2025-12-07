@@ -1,29 +1,66 @@
-const express = require('express');
-const http = require('http');
-const cors =require('cors');
-const socketio = require('socket.io');
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+const cors = require("cors");
 
 const app = express();
+app.use(cors());
 
 const server = http.createServer(app);
-const io = socketio(server,{
-    cors :{
-        origin:"*"
+
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
+
+// Track users
+let onlineUsers = [];
+
+io.on("connection", (socket) => {
+  console.log("User connected:", socket.id);
+
+  // ---------------- MESSAGE ----------------
+  socket.on("message", (msgData) => {
+    console.log("Message received:", msgData);
+    io.emit("message", msgData);
+  });
+
+  // ---------------- TYPING ----------------
+  socket.on("typing", (username) => {
+    socket.broadcast.emit("typing", username);
+  });
+
+  socket.on("stopTyping", () => {
+    socket.broadcast.emit("stopTyping");
+  });
+
+  // ---------------- JOIN USER ----------------
+  socket.on("join", (username) => {
+    socket.username = username;
+
+    if (!onlineUsers.includes(username)) {
+      onlineUsers.push(username);
     }
-})
 
-io.on("connection",(socket)=>{
-    console.log('New client connected');
+    io.emit("onlineUsers", onlineUsers);
+    console.log("Online users:", onlineUsers);
+  });
 
-    socket.on("chat",(data) =>{
-        io.emit("chat",data)
-    })
+  // ---------------- DISCONNECT ----------------
+  socket.on("disconnect", () => {
+    console.log("User disconnected:", socket.id);
 
-    socket.on("disconnect",()=>{
-        console.log('Client disconnected');
-    })
-})
+    if (socket.username) {
+      onlineUsers = onlineUsers.filter((u) => u !== socket.username);
+      io.emit("onlineUsers", onlineUsers);
+      console.log("Online users:", onlineUsers);
+    }
+  });
+});
 
-server.listen(3000,()=>{
-    console.log('Server listening on port 3000');
-})
+const PORT = 3000;
+server.listen(PORT, () => {
+  console.log(`Server running on ${PORT}`);
+});

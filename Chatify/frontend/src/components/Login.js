@@ -1,41 +1,36 @@
-import React, { useState } from 'react';
-import '../App.css';
-import { Link } from 'react-router-dom';
-import Header from './Header';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const Login = () => {
-  const [username, setUsername] = useState('');
+  const [name, setName] = useState("");
+  const navigate = useNavigate();
 
-  const handleLogin = (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-
-    if (username.trim() !== '') {
-      localStorage.setItem('username', username);
-    } else {
-      alert('Please enter a username!');
-      return;
-    }
+    if (!name.trim()) return;
+    navigate(`/chat/${name}`);
   };
 
   return (
-    <main>
-    <Header/>
-      <div className='form-container'>
-        <form onSubmit={handleLogin} className='login-form'>
+    <>
+      <header className="head">
+        <h1>mayankCHAT</h1>
+      </header>
+
+      <div className="form-container">
+        <form className="login-form" onSubmit={handleSubmit}>
           <input
-            type='text'
-            placeholder='Enter your username'
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            required
+            type="text"
+            placeholder="Enter a username"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
           />
-          <Link to={username.trim() !== '' ? `/chat/${username}` : '/'} >
-            <button className='login-link'>LOGIN</button>
-          </Link>
+
+          <button type="submit">Join</button>
         </form>
       </div>
-      </main>
+    </>
   );
-}
+};
 
 export default Login;
